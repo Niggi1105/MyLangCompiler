@@ -12,6 +12,8 @@ pub enum Token {
     Enum,
     Var,
     While,
+    Print, //write to default io_out
+    Break,
 
     // booleans
     True,
@@ -227,6 +229,8 @@ impl Lexer {
                         "return" => Token::Return,
                         "true" => Token::True,
                         "false" => Token::False,
+                        "print" => Token::Print,
+                        "break" => Token::Break,
 
                         //if its not a keyword, it is an identifier
                         _other => Token::Identifier,
