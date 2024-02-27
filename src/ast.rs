@@ -1,19 +1,22 @@
-use crate::lexer::Token;
-
 pub struct BodyAST {
     pub exprs: Vec<ExprAST>,
 }
 
+///code that has, returns or is a value
 pub enum ExprAST {
     Function(FunctionAST),
-    Definition(Declaration),
+    Declaration(Declaration),
     Variable(VariableAST),
     Call(CallExprAST),
     BinaryExpression(Box<BinaryExpressionAST>),
     Number(NumberAST),
     StringLiteral(StringLiteralAST),
-    Assign(Box<AssignExprAST>),
+}
+
+///code that only moves a value
+pub enum StmtAST {
     Return(Box<ReturnStmtAST>),
+    Assign(Box<AssignExprAST>),
 }
 
 /// a hardcoded integer value

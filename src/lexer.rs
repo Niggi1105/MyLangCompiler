@@ -4,9 +4,11 @@ use std::usize;
 pub enum Token {
     //keywords
     Const,
+    Declaration,
     Definition,
     If,
     Return,
+
     //Struct,
     Enum,
     Var,
@@ -97,7 +99,7 @@ impl Lexer {
     }
 
     pub fn get_next_token(&mut self) -> Token {
-        if self.pos >= self.end {
+        if self.pos > self.end {
             return Token::EOF;
         }
 
@@ -305,6 +307,7 @@ impl Lexer {
                         "i16" => Token::I16,
                         "i32" => Token::I32,
                         "str" => Token::Str,
+                        "let" => Token::Declaration,
 
                         //if its not a keyword, it is an identifier
                         _other => Token::Identifier(current_string),
