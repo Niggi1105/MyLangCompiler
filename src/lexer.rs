@@ -1,14 +1,13 @@
-use core::panic;
 use std::usize;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token {
     //keywords
     Const,
-    Function,
+    Definition,
     If,
     Return,
-    Struct,
+    //Struct,
     Enum,
     Var,
     While,
@@ -22,38 +21,58 @@ pub enum Token {
     //Operators
     AndBool,
     AndInt,
+    AndIntAssign,
     Divide,
+    DivideAssign,
     Equal,
     Assign,
     GreaterThan,
     LeftShift,
     LessThan,
     Minus,
+    MinusAssign,
     Modulo,
     Mult,
+    MultAssign,
     Not,
     OrBool,
     OrInt,
+    OrIntAssign,
     Plus,
+    PlusAssign,
+    Unequal,
     RightShift,
     XorBool,
     XorInt,
+    XorIntAssign,
 
     //Misc
     Arrow,
     Comma,
-    Comment,
+    Comment(String),
     Colon,
-    Identifier,
+    //Dot,
+    Identifier(String),
     LeftBrace,
     LeftBracket,
     LeftParen,
-    Number,
-    StringLiteral,
+    Number(i32),
+    StringLiteral(String),
     SemiColon,
     RightBrace,
     RightBracket,
     RightParen,
+
+    //primitives
+    U8,
+    U16,
+    U32,
+    I8,
+    I16,
+    I32,
+    Str,
+    Char,
+    //Pointer,
 
     //End of File
     EOF,
@@ -78,43 +97,71 @@ impl Lexer {
     }
 
     pub fn get_next_token(&mut self) -> Token {
-        let char_bytes = &self.program;
-
         if self.pos >= self.end {
             return Token::EOF;
         }
 
-        while char_bytes[self.pos].is_ascii_whitespace() {
+        while self.program[self.pos].is_ascii_whitespace() {
             if self.pos == self.end {
                 return Token::EOF;
             }
             self.pos += 1
         }
 
-        let token = match char_bytes[self.pos] {
-            b'+' => Token::Plus,
+        let token = match self.program[self.pos] {
+            b'+' => {
+                if self.pos == self.end {
+                    Token::Plus
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::PlusAssign
+                } else {
+                    Token::Plus
+                }
+            }
             b'-' => {
                 if self.pos == self.end {
                     Token::Minus
-                } else if char_bytes[self.pos + 1] == b'>' {
+                } else if self.program[self.pos + 1] == b'>' {
                     self.pos += 1;
                     Token::Arrow
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::MinusAssign
                 } else {
                     Token::Minus
                 }
             }
-            b'*' => Token::Mult,
+            b'*' => {
+                if self.pos == self.end {
+                    Token::Mult
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::MultAssign
+                } else {
+                    Token::Mult
+                }
+            }
             b'/' => {
                 if self.pos == self.end {
                     Token::Divide
-                } else if char_bytes[self.pos + 1] == b'/' {
+                } else if self.program[self.pos + 1] == b'/' {
+                    //eat '/'
+                    self.pos += 1;
+
+                    let mut comment = String::new();
+
                     while self.pos < self.end {
                         self.pos += 1;
-                        if char_bytes[self.pos] == b'\n' {
+                        if self.program[self.pos] == b'\n' {
                             break;
                         }
+                        comment.push(self.program[self.pos] as char);
                     }
-                    Token::Comment
+                    Token::Comment(comment)
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::DivideAssign
                 } else {
                     Token::Divide
                 }
@@ -122,9 +169,12 @@ impl Lexer {
             b'&' => {
                 if self.pos == self.end {
                     Token::AndInt
-                } else if char_bytes[self.pos + 1] == b'&' {
+                } else if self.program[self.pos + 1] == b'&' {
                     self.pos += 1;
                     Token::AndBool
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::AndIntAssign
                 } else {
                     Token::AndInt
                 }
@@ -132,9 +182,12 @@ impl Lexer {
             b'|' => {
                 if self.pos == self.end {
                     Token::OrInt
-                } else if char_bytes[self.pos + 1] == b'|' {
+                } else if self.program[self.pos + 1] == b'|' {
                     self.pos += 1;
                     Token::OrBool
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::OrIntAssign
                 } else {
                     Token::OrInt
                 }
@@ -142,9 +195,12 @@ impl Lexer {
             b'^' => {
                 if self.pos == self.end {
                     Token::XorInt
-                } else if char_bytes[self.pos + 1] == b'^' {
+                } else if self.program[self.pos + 1] == b'^' {
                     self.pos += 1;
                     Token::XorBool
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::XorIntAssign
                 } else {
                     Token::XorInt
                 }
@@ -152,7 +208,7 @@ impl Lexer {
             b'=' => {
                 if self.pos == self.end {
                     Token::Assign
-                } else if char_bytes[self.pos + 1] == b'=' {
+                } else if self.program[self.pos + 1] == b'=' {
                     self.pos += 1;
                     Token::Equal
                 } else {
@@ -168,11 +224,20 @@ impl Lexer {
             b')' => Token::RightParen,
             b'{' => Token::LeftBrace,
             b'}' => Token::RightBrace,
-            b'!' => Token::Not,
+            b'!' => {
+                if self.pos == self.end {
+                    Token::Not
+                } else if self.program[self.pos + 1] == b'=' {
+                    self.pos += 1;
+                    Token::Unequal
+                } else {
+                    Token::Not
+                }
+            }
             b'>' => {
                 if self.pos == self.end {
                     Token::GreaterThan
-                } else if char_bytes[self.pos + 1] == b'>' {
+                } else if self.program[self.pos + 1] == b'>' {
                     self.pos += 1;
                     Token::RightShift
                 } else {
@@ -182,7 +247,7 @@ impl Lexer {
             b'<' => {
                 if self.pos == self.end {
                     Token::LessThan
-                } else if char_bytes[self.pos + 1] == b'<' {
+                } else if self.program[self.pos + 1] == b'<' {
                     self.pos += 1;
                     Token::LeftShift
                 } else {
@@ -190,13 +255,15 @@ impl Lexer {
                 }
             }
             b'"' => {
+                let mut literal = String::new();
                 while self.pos < self.end {
                     self.pos += 1;
-                    if char_bytes[self.pos] == b'"' {
+                    if self.program[self.pos] == b'"' {
                         break;
                     }
+                    literal.push(self.program[self.pos] as char);
                 }
-                Token::StringLiteral
+                Token::StringLiteral(literal)
             }
             b'%' => Token::Modulo,
 
@@ -207,8 +274,8 @@ impl Lexer {
 
                     //eat all characters and digits (identifiers can contain digidts)
                     while self.pos < self.end {
-                        if char_bytes[self.pos + 1].is_ascii_alphanumeric() {
-                            current.push(char_bytes[self.pos + 1]);
+                        if self.program[self.pos + 1].is_ascii_alphanumeric() {
+                            current.push(self.program[self.pos + 1]);
                             self.pos += 1;
                         } else {
                             break;
@@ -219,32 +286,41 @@ impl Lexer {
 
                     //match for keywords
                     match current_string.as_str() {
-                        "fn" => Token::Function,
+                        "fn" => Token::Definition,
                         "const" => Token::Const,
                         "var" => Token::Var,
                         "while" => Token::While,
                         "if" => Token::If,
-                        "struct" => Token::Struct,
+                        //"struct" => Token::Struct,
                         "enum" => Token::Enum,
                         "return" => Token::Return,
                         "true" => Token::True,
                         "false" => Token::False,
                         "print" => Token::Print,
                         "break" => Token::Break,
+                        "u8" => Token::U8,
+                        "u16" => Token::U16,
+                        "u32" => Token::U32,
+                        "i8" => Token::I8,
+                        "i16" => Token::I16,
+                        "i32" => Token::I32,
+                        "str" => Token::Str,
 
                         //if its not a keyword, it is an identifier
-                        _other => Token::Identifier,
+                        _other => Token::Identifier(current_string),
                     }
                 } else if other.is_ascii_digit() {
                     //eat the didgits
+                    let mut num_string = (other as char).to_string();
                     while self.pos < self.end {
-                        if char_bytes[self.pos + 1].is_ascii_digit() {
+                        if self.program[self.pos + 1].is_ascii_digit() {
+                            num_string.push(self.program[self.pos + 1] as char);
                             self.pos += 1;
                         } else {
                             break;
                         }
                     }
-                    Token::Number
+                    Token::Number(num_string.parse::<i32>().expect("invalid number"))
                 } else {
                     Token::Unknown
                 }
@@ -265,13 +341,16 @@ mod test {
     fn test_lexer_simple_program() {
         let program = "fn main() { return 0 }";
         let mut lexer = Lexer::new(program.to_string().into_bytes());
-        assert_eq!(lexer.get_next_token(), Token::Function);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(lexer.get_next_token(), Token::Definition);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::Identifier("main".to_string())
+        );
         assert_eq!(lexer.get_next_token(), Token::LeftParen);
         assert_eq!(lexer.get_next_token(), Token::RightParen);
         assert_eq!(lexer.get_next_token(), Token::LeftBrace);
         assert_eq!(lexer.get_next_token(), Token::Return);
-        assert_eq!(lexer.get_next_token(), Token::Number);
+        assert_eq!(lexer.get_next_token(), Token::Number(0));
         assert_eq!(lexer.get_next_token(), Token::RightBrace);
         assert_eq!(lexer.get_next_token(), Token::EOF);
     }
@@ -282,13 +361,16 @@ mod test {
 return 0 
 }";
         let mut lexer = Lexer::new(program.to_string().into_bytes());
-        assert_eq!(lexer.get_next_token(), Token::Function);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(lexer.get_next_token(), Token::Definition);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::Identifier("main".to_string())
+        );
         assert_eq!(lexer.get_next_token(), Token::LeftParen);
         assert_eq!(lexer.get_next_token(), Token::RightParen);
         assert_eq!(lexer.get_next_token(), Token::LeftBrace);
         assert_eq!(lexer.get_next_token(), Token::Return);
-        assert_eq!(lexer.get_next_token(), Token::Number);
+        assert_eq!(lexer.get_next_token(), Token::Number(0));
         assert_eq!(lexer.get_next_token(), Token::RightBrace);
         assert_eq!(lexer.get_next_token(), Token::EOF);
     }
@@ -299,154 +381,57 @@ return 0
 return     0 
 }  ";
         let mut lexer = Lexer::new(program.to_string().into_bytes());
-        assert_eq!(lexer.get_next_token(), Token::Function);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(lexer.get_next_token(), Token::Definition);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::Identifier("main".to_string())
+        );
         assert_eq!(lexer.get_next_token(), Token::LeftParen);
         assert_eq!(lexer.get_next_token(), Token::RightParen);
         assert_eq!(lexer.get_next_token(), Token::LeftBrace);
         assert_eq!(lexer.get_next_token(), Token::Return);
-        assert_eq!(lexer.get_next_token(), Token::Number);
+        assert_eq!(lexer.get_next_token(), Token::Number(0));
         assert_eq!(lexer.get_next_token(), Token::RightBrace);
         assert_eq!(lexer.get_next_token(), Token::EOF);
     }
 
     #[test]
     fn test_lexer_operator() {
-        let program = "fn main() {
-            const a = 10;
-            const b = 20;
-            var c = a + b;
-            var d = true;
-            d = false;
-            c = c - a;
-            c = c | a;
-            c = c % b;
-            c = c ^ a;
-            c = c * a;
-            c = c / a;
-            c = c & c;
-            d = d && true;
-            d = d || false;
-            d = d ^^ false;
-            return d == true;
-        }";
+        let program = "
+            +
+            -
+            *
+            /
+            +=
+            -=
+            *=
+            /=
+            &&
+            ||
+            ^^
+            &
+            |
+            ^
+            ==
+            !=
+        ";
         let mut lexer = Lexer::new(program.to_string().into_bytes());
-        assert_eq!(lexer.get_next_token(), Token::Function);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::LeftParen);
-        assert_eq!(lexer.get_next_token(), Token::RightParen);
-        assert_eq!(lexer.get_next_token(), Token::LeftBrace);
-        //const a = 10
-        assert_eq!(lexer.get_next_token(), Token::Const);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Number);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //const b = 20;
-        assert_eq!(lexer.get_next_token(), Token::Const);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Number);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //var c = a + b;
-        assert_eq!(lexer.get_next_token(), Token::Var);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
         assert_eq!(lexer.get_next_token(), Token::Plus);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //var d = true;
-        assert_eq!(lexer.get_next_token(), Token::Var);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::True);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //d = false;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::False);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a - b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
         assert_eq!(lexer.get_next_token(), Token::Minus);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a | b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::OrInt);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a % b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Modulo);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a ^ b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::XorInt);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a * b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
         assert_eq!(lexer.get_next_token(), Token::Mult);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a / b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
         assert_eq!(lexer.get_next_token(), Token::Divide);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //c = a & b;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::AndInt);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //d = d && true;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(lexer.get_next_token(), Token::PlusAssign);
+        assert_eq!(lexer.get_next_token(), Token::MinusAssign);
+        assert_eq!(lexer.get_next_token(), Token::MultAssign);
+        assert_eq!(lexer.get_next_token(), Token::DivideAssign);
         assert_eq!(lexer.get_next_token(), Token::AndBool);
-        assert_eq!(lexer.get_next_token(), Token::True);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //d = d || false;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
         assert_eq!(lexer.get_next_token(), Token::OrBool);
-        assert_eq!(lexer.get_next_token(), Token::False);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //d = d ^^ false;
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
-        assert_eq!(lexer.get_next_token(), Token::Assign);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
         assert_eq!(lexer.get_next_token(), Token::XorBool);
-        assert_eq!(lexer.get_next_token(), Token::False);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-        //return d == true;
-        assert_eq!(lexer.get_next_token(), Token::Return);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(lexer.get_next_token(), Token::AndInt);
+        assert_eq!(lexer.get_next_token(), Token::OrInt);
+        assert_eq!(lexer.get_next_token(), Token::XorInt);
         assert_eq!(lexer.get_next_token(), Token::Equal);
-        assert_eq!(lexer.get_next_token(), Token::True);
-        assert_eq!(lexer.get_next_token(), Token::SemiColon);
-
-        assert_eq!(lexer.get_next_token(), Token::RightBrace);
-        //EOF
-        assert_eq!(lexer.get_next_token(), Token::EOF);
+        assert_eq!(lexer.get_next_token(), Token::Unequal);
     }
 
     #[test]
@@ -456,14 +441,20 @@ return     0
                             return 0;
                         }";
         let mut lexer = Lexer::new(program.to_string().into_bytes());
-        assert_eq!(lexer.get_next_token(), Token::Comment);
-        assert_eq!(lexer.get_next_token(), Token::Function);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::Comment("this is the main function".to_string())
+        );
+        assert_eq!(lexer.get_next_token(), Token::Definition);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::Identifier("main".to_string())
+        );
         assert_eq!(lexer.get_next_token(), Token::LeftParen);
         assert_eq!(lexer.get_next_token(), Token::RightParen);
         assert_eq!(lexer.get_next_token(), Token::LeftBrace);
         assert_eq!(lexer.get_next_token(), Token::Return);
-        assert_eq!(lexer.get_next_token(), Token::Number);
+        assert_eq!(lexer.get_next_token(), Token::Number(0));
         assert_eq!(lexer.get_next_token(), Token::SemiColon);
         assert_eq!(lexer.get_next_token(), Token::RightBrace);
         assert_eq!(lexer.get_next_token(), Token::EOF);
@@ -474,13 +465,19 @@ return     0
                             return \"this is a string Literal\";
                         }";
         let mut lexer = Lexer::new(program.to_string().into_bytes());
-        assert_eq!(lexer.get_next_token(), Token::Function);
-        assert_eq!(lexer.get_next_token(), Token::Identifier);
+        assert_eq!(lexer.get_next_token(), Token::Definition);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::Identifier("main".to_string())
+        );
         assert_eq!(lexer.get_next_token(), Token::LeftParen);
         assert_eq!(lexer.get_next_token(), Token::RightParen);
         assert_eq!(lexer.get_next_token(), Token::LeftBrace);
         assert_eq!(lexer.get_next_token(), Token::Return);
-        assert_eq!(lexer.get_next_token(), Token::StringLiteral);
+        assert_eq!(
+            lexer.get_next_token(),
+            Token::StringLiteral("this is a string Literal".to_string())
+        );
         assert_eq!(lexer.get_next_token(), Token::SemiColon);
         assert_eq!(lexer.get_next_token(), Token::RightBrace);
         assert_eq!(lexer.get_next_token(), Token::EOF);
