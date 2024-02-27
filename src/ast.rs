@@ -1,95 +1,63 @@
 use crate::lexer::Token;
 
-#[derive(Debug, Clone, PartialEq)]
+pub struct BodyAST {
+    pub exprs: Vec<ExprAST>,
+}
+
 pub enum ExprAST {
-    NumberExpr(NumberExprAST),
-    VariableExpr(VariableExprAST),
-    BinaryExpr(Box<BinaryExprAST>),
-    CallExpr(CallExprAST),
-    Prototype(PrototypeAST),
-    Function(Box<FunctionAST>),
+    Function(FunctionAST),
+    Definition(Declaration),
+    Variable(VariableAST),
+    Call(CallExprAST),
+    BinaryExpression(Box<BinaryExpressionAST>),
+    Number(NumberAST),
+    StringLiteral(StringLiteralAST),
+    Assign(Box<AssignExprAST>),
+    Return(Box<ReturnStmtAST>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct NumberExprAST {
-    value: f64,
+/// a hardcoded integer value
+pub struct NumberAST {
+    pub num: i32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VariableExprAST {
-    name: String,
+///used in expressions, will be resolved by code gen
+pub struct VariableAST {
+    pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryExprAST {
-    lhs: ExprAST,
-    rhs: ExprAST,
-    op: Token,
+pub struct AssignExprAST {
+    pub var: VariableAST,
+    pub value: ExprAST,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct CallExprAST {
-    callee: String,
-    args: Vec<ExprAST>,
+pub struct StringLiteralAST {
+    pub str: String,
 }
 
-//barebone of a function
-#[derive(Debug, Clone, PartialEq)]
-pub struct PrototypeAST {
-    name: String,
-    args: Vec<String>, //contains names of the arguments, type is always f64
-}
-
-//a function body
-#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionAST {
-    proto: PrototypeAST,
-    body: ExprAST,
+    pub name: String,
+    pub args: Vec<Declaration>,
+    pub body: BodyAST,
+    pub rt_type: String,
 }
 
-impl NumberExprAST {
-    pub fn new(n: f64) -> Self {
-        Self { value: n }
-    }
-}
-impl VariableExprAST {
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
+pub struct Declaration {
+    pub name: String,
+    pub var_type: String,
+    pub is_const: bool,
 }
 
-impl BinaryExprAST {
-    pub fn new(rhs: ExprAST, lhs: ExprAST, op: Token) -> Self {
-        Self { rhs, lhs, op }
-    }
-
-    pub fn rhs(&self) -> ExprAST {
-        self.rhs.clone()
-    }
-
-    pub fn lhs(&self) -> ExprAST {
-        self.lhs.clone()
-    }
-
-    pub fn op(&self) -> Token {
-        self.op.clone()
-    }
+pub struct CallExprAST {
+    pub callee: String,
+    pub args: Vec<ExprAST>,
 }
 
-impl CallExprAST {
-    pub fn new(callee: String, args: Vec<ExprAST>) -> Self {
-        Self { callee, args }
-    }
+pub struct BinaryExpressionAST {
+    pub rhs: ExprAST,
+    pub lhs: ExprAST,
 }
 
-impl PrototypeAST {
-    pub fn new(name: String, args: Vec<String>) -> Self {
-        Self { name, args }
-    }
-}
-
-impl FunctionAST {
-    pub fn new(proto: PrototypeAST, body: ExprAST) -> Self {
-        Self { proto, body }
-    }
+pub struct ReturnStmtAST {
+    pub expr: ExprAST,
 }
