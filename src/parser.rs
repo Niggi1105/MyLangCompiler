@@ -1,7 +1,8 @@
-use core::panic;
-
 use crate::{
-    ast::{CallExprAST, ExprAST, NumberAST, StringLiteralAST, VariableAST},
+    ast::{
+        AssignStmtAST, CallExprAST, DeclAssignAST, DeclarationAST, ExprAST, NumberAST, StmtAST,
+        StringLiteralAST, TypeAST, VariableAST,
+    },
     lexer::{Lexer, Token},
 };
 
@@ -47,7 +48,7 @@ impl Parser {
             Token::Minus => 17,
             Token::Mult => 19,
             Token::Divide => 19,
-            Token::Modulo => 19,
+            //Token::Modulo => 19,
             Token::Not => 21,
             _other => -1,
         })
@@ -61,15 +62,23 @@ impl Parser {
         StringLiteralAST { str: lit }
     }
 
-    ///call expressions and variables
-    fn parse_identifier(&mut self, ident: String) -> ExprAST {
-        if self.get_next_token() != Token::LeftParen {
-            //its a variable
-            return ExprAST::Variable(VariableAST { name: ident });
+    fn parse_type(&mut self) -> TypeAST {
+        match self.cur_token {
+            Token::U8 => TypeAST::U8,
+            Token::U16 => TypeAST::U16,
+            Token::U32 => TypeAST::U32,
+            Token::I8 => TypeAST::I8,
+            Token::I16 => TypeAST::I16,
+            Token::I32 => TypeAST::I32,
+            Token::Str => TypeAST::Str,
+            Token::Char => TypeAST::Char,
+            Token::Identifier(name) => TypeAST::Custom(name),
+            other => panic!("unexpected token: {:?}, expected Type", other),
         }
+    }
 
+    fn parse_call_expr(&mut self, name: String) -> CallExprAST {
         let mut args = Vec::new();
-        //its a call expression
         while self.cur_token != Token::RightParen {
             self.get_next_token();
             println!("{:?}", self.cur_token);
@@ -81,10 +90,25 @@ impl Parser {
                 other => panic!("unexpected token: {:?}, expected ',' or ')'", other),
             }
         }
-        return ExprAST::Call(CallExprAST {
-            callee: ident,
-            args,
-        });
+        return CallExprAST { callee: name, args };
+    }
+
+    fn parse_assign(&mut self, name: String) -> AssignStmtAST {
+        //eat '='
+        self.get_next_token();
+        AssignStmtAST {
+            var: VariableAST { name },
+            value: self.parse_expression(),
+        }
+    }
+
+    ///for call expressions and variables inside expressions
+    fn parse_identifier(&mut self, ident: String) -> ExprAST {
+        if self.get_next_token() != Token::LeftParen {
+            //its a variable
+            return ExprAST::Variable(VariableAST { name: ident });
+        }
+        ExprAST::Call(self.parse_call_expr(ident))
     }
 
     ///returns the parsed expression from within the parens
@@ -99,14 +123,65 @@ impl Parser {
         expr
     }
 
-    fn parse_declaration(&mut self) -> ExprAST {}
+    fn parse_declaration(&mut self) -> StmtAST {
+        //eat "let"
+        self.get_next_token();
+        let is_mut = self.cur_token == Token::Mut;
+        let name = match &self.cur_token {
+            Token::Identifier(ident) => ident.to_string(),
+            other => panic!("unexpected token: {:?}, expected identifier", other),
+        };
+        let var_type = if self.get_next_token() == Token::Colon {
+            self.parse_type()
+        } else {
+            TypeAST::Undefined
+        };
+        if self.get_next_token() == Token::SemiColon {
+            StmtAST::Declaration(DeclarationAST {
+                name,
+                var_type,
+                is_mut,
+            })
+        } else if self.cur_token == Token::Assign {
+            //eat the '='
+            self.get_next_token();
+            //parse expr
+            StmtAST::DeclAssign(DeclAssignAST {
+                name,
+                value: self.parse_expression(),
+                is_mut,
+                var_type,
+            })
+        } else {
+            panic!(
+                "unexpected token: {:?}, expected ';' or '='",
+                self.cur_token
+            );
+        }
+    }
 
-    fn parse_primary(&mut self) -> ExprAST {
-        match self.cur_token {
-            Token::Identifier(ident) => self.parse_identifier(ident),
-            Token::StringLiteral(lit) => ExprAST::StringLiteral(self.parse_string_literal(lit)),
-            Token::Number(num) => ExprAST::Number(self.parse_number(num)),
+    fn parse_primary_expression(&mut self) -> ExprAST {
+        match &self.cur_token {
+            Token::Identifier(ident) => self.parse_identifier(ident.to_string()),
+            Token::StringLiteral(lit) => {
+                ExprAST::StringLiteral(self.parse_string_literal(lit.to_string()))
+            }
+            Token::Number(num) => ExprAST::Number(self.parse_number(*num)),
             Token::LeftParen => self.parse_paren_expr(),
+            other => panic!("unexpected token: {:?}, expected Primary", other),
+        }
+    }
+
+    ///this is called when an identifier is found outside of expressions
+    ///it is either a call with ignored return value or an assignment
+    fn parse_ident_stmt(&mut self, ident: String) -> StmtAST {
+        match self.get_next_token() {
+            //...
+            //foo(2,6)
+            //...
+            Token::LeftParen => StmtAST::Call(self.parse_call_expr(ident)),
+            Token::Assign => StmtAST::Assign(Box::new(self.parse_assign(ident))),
+            other => panic!("unexpected token: {:?}, expected '(' or '='", other),
         }
     }
 
@@ -124,6 +199,7 @@ mod test {
         let program = "foo(a, b)";
         let lexer = Lexer::new(program.into());
         let mut parser = Parser::new(lexer);
-        parser.parse_primary();
+        let parsed = parser.parse_primary_expression();
+        panic!("{:?}", parsed)
     }
 }

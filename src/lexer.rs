@@ -3,18 +3,17 @@ use std::usize;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token {
     //keywords
-    Const,
     Declaration,
     Definition,
     If,
     Return,
 
     //Struct,
-    Enum,
-    Var,
+    //Enum,
     While,
     Print, //write to default io_out
     Break,
+    Mut,
 
     // booleans
     True,
@@ -33,7 +32,7 @@ pub enum Token {
     LessThan,
     Minus,
     MinusAssign,
-    Modulo,
+    //Modulo,
     Mult,
     MultAssign,
     Not,
@@ -267,7 +266,7 @@ impl Lexer {
                 }
                 Token::StringLiteral(literal)
             }
-            b'%' => Token::Modulo,
+            //b'%' => Token::Modulo,
 
             //for multi character tokens
             other => {
@@ -289,12 +288,10 @@ impl Lexer {
                     //match for keywords
                     match current_string.as_str() {
                         "fn" => Token::Definition,
-                        "const" => Token::Const,
-                        "var" => Token::Var,
                         "while" => Token::While,
                         "if" => Token::If,
                         //"struct" => Token::Struct,
-                        "enum" => Token::Enum,
+                        //"enum" => Token::Enum,
                         "return" => Token::Return,
                         "true" => Token::True,
                         "false" => Token::False,
@@ -308,6 +305,7 @@ impl Lexer {
                         "i32" => Token::I32,
                         "str" => Token::Str,
                         "let" => Token::Declaration,
+                        "mut" => Token::Mut,
 
                         //if its not a keyword, it is an identifier
                         _other => Token::Identifier(current_string),
