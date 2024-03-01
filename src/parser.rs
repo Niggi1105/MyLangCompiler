@@ -124,8 +124,6 @@ impl Parser {
                 self.cur_token
             )
         }
-        //eat the ';'
-        self.get_next_token();
         AssignStmtAST {
             var: VariableAST { name },
             value,
@@ -146,18 +144,25 @@ impl Parser {
     ///it is either a call with ignored return value or an assignment
     fn parse_ident_stmt(&mut self, ident: String) -> StmtAST {
         //eats the identifier
-        match self.get_next_token() {
+        let stmt = match self.get_next_token() {
             //...
             //foo(2,6)
             //...
-            Token::LeftParen => StmtAST::Call(self.parse_call_expr(ident)),
+            Token::LeftParen => {
+                let mut call = self.parse_call_expr(ident);
+                call.rt_value_ignored = true;
+                StmtAST::Call(call)
+            }
             Token::Assign => StmtAST::Assign(Box::new(self.parse_assign(ident))),
             other => panic!(
                 "Error in line: {:?}, unexpected token: {:?}, expected '(' or '='",
                 self.lexer.current_line(),
                 other
             ),
-        }
+        };
+        //eat the semi colon
+        self.get_next_token();
+        stmt
     }
 
     ///returns the parsed expression from within the parens
@@ -173,6 +178,7 @@ impl Parser {
     }
 
     fn parse_declaration(&mut self) -> StmtAST {
+        assert_eq!(self.cur_token, Token::Declaration);
         //eat "let"
         self.get_next_token();
         let is_mut = if self.cur_token == Token::Mut {
@@ -194,15 +200,12 @@ impl Parser {
         let var_type = if self.get_next_token() == Token::Colon {
             //eat the ':'
             self.get_next_token();
-            let t = self.parse_type();
-            //eat the type
-            self.get_next_token();
-            t
+            self.parse_type()
         } else {
             TypeAST::Undefined
         };
         //eat the type
-        if self.get_next_token() == Token::SemiColon {
+        if self.cur_token == Token::SemiColon {
             //eat the ';'
             self.get_next_token();
             StmtAST::Declaration(DeclarationAST {
@@ -376,6 +379,9 @@ impl Parser {
                 Token::Definition => stmts.push(StmtAST::Function(self.parse_function_def())),
                 Token::Return => stmts.push(StmtAST::Return(Box::new(self.parse_return_stmt()))),
                 Token::Identifier(ident) => stmts.push(self.parse_ident_stmt(ident.to_string())),
+                Token::Comment(com) => {
+                    self.get_next_token();
+                }
                 Token::RightBrace => {
                     //eat '}'
                     self.get_next_token();
@@ -442,6 +448,29 @@ impl Parser {
             }));
         }
     }
+
+    pub fn parse(&mut self) -> BodyAST {
+        let mut program_elements = Vec::new();
+        loop {
+            match &self.cur_token {
+                Token::Comment(_cmt) => {
+                    self.get_next_token();
+                }
+                Token::Definition => {
+                    program_elements.push(StmtAST::Function(self.parse_function_def()))
+                }
+                Token::EOF => break,
+                other => panic!(
+                    "Error in line: {:?}, unexpected token: {:?}, expected 'fn' or '//'",
+                    self.lexer.current_line(),
+                    other
+                ),
+            };
+        }
+        BodyAST {
+            stmts: program_elements,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -449,25 +478,54 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_parse_identifier() {
-        let program = "foo(a, b)";
-        let lexer = Lexer::new(program.into());
-        let mut parser = Parser::new(lexer);
-        let parsed = parser.parse_primary_expression();
-        panic!("{:?}", parsed)
-    }
-
-    #[test]
-    fn test_parse_program() {
-        let mprogram = "fn foo(a: u8, b: u8) -> u8 {
+    fn test_parse_functions() {
+        let mprogram = "fn foo(mut a: u8, mut b: u8) -> u8 {
                             return a + b;  
                         }
                         fn main() -> void {
                             return foo(2,5);
-                        }}";
+                        }";
         let lexer = Lexer::new(mprogram.into());
         let mut parser = Parser::new(lexer);
-        let body = parser.parse_body();
-        panic!("{:?}", body)
+        let body = parser.parse();
+    }
+
+    #[test]
+    fn test_parse_assignment() {
+        let mprogram = "fn main() -> void {
+                            let a = 10;
+                            let b = 20;
+                            let c = a + b;
+                        }";
+        let lexer = Lexer::new(mprogram.into());
+        let mut parser = Parser::new(lexer);
+        let body = parser.parse();
+    }
+
+    #[test]
+    fn test_parse_binary_expr() {
+        let mprogram = "fn main() -> void {
+                            let mut a: u8 = 10;
+                            let b: u8 = 20;
+                            let c: u16 = a + b * 3 - 1;
+                        }";
+        let lexer = Lexer::new(mprogram.into());
+        let mut parser = Parser::new(lexer);
+        let body = parser.parse();
+    }
+
+    #[test]
+    fn test_parse_binary_expr_with_function_call() {
+        let mprogram = "fn foo(a: u8, b: u8) -> u8 {
+                            return a * a * b * b;
+                        }
+                        fn main() -> void {
+                            let mut a: u8 = 10;
+                            let b: u8 = 20;
+                            let c: u16 = a + b * 3 + foo(3,2);
+                        }";
+        let lexer = Lexer::new(mprogram.into());
+        let mut parser = Parser::new(lexer);
+        let body = parser.parse();
     }
 }
