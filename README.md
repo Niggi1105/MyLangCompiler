@@ -1,0 +1,1 @@
+this is a simple compiler for my own programming language. This Compiler is supposed to compile to a custom instruction set with custom specifications for Minecraft Computers. RISC architecture is currently not supported. There are plans for adding support for emulators.
