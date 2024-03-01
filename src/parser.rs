@@ -73,6 +73,7 @@ impl Parser {
     }
 
     ///parses the Current token to a type and eats the current token
+    ///only support for primitives so far
     fn parse_type(&mut self) -> TypeAST {
         let t = match &self.cur_token {
             Token::U8 => TypeAST::U8,
@@ -83,8 +84,9 @@ impl Parser {
             Token::I32 => TypeAST::I32,
             Token::Str => TypeAST::Str,
             Token::Char => TypeAST::Char,
+            Token::Bool => TypeAST::Bool,
             Token::Void => TypeAST::Void,
-            Token::Identifier(name) => TypeAST::Custom(name.to_string()),
+            //Token::Identifier(name) => TypeAST::Custom(name.to_string()),
             other => panic!(
                 "Error in line: {:?}, unexpected token: {:?}, expected Type",
                 self.lexer.current_line(),

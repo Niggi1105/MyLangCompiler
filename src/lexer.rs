@@ -74,6 +74,7 @@ pub enum Token {
     Str,
     Char,
     Void,
+    Bool,
     //Pointer,
 
     //End of File
@@ -317,6 +318,8 @@ impl Lexer {
                         "void" => Token::Void,
                         "let" => Token::Declaration,
                         "mut" => Token::Mut,
+                        "char" => Token::Char,
+                        "bool" => Token::Bool,
 
                         //if its not a keyword, it is an identifier
                         _other => Token::Identifier(current_string),

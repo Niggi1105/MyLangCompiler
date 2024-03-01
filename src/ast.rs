@@ -44,6 +44,7 @@ pub enum TypeAST {
     Str,
     Char,
     Void,
+    Bool,
     Custom(String), //name
     Undefined,
 }
