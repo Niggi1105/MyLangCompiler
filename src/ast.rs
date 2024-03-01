@@ -1,9 +1,11 @@
+use crate::lexer::Token;
+
 //{
 //  Body
 //}
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BodyAST {
-    pub exprs: Vec<StmtAST>,
+    pub stmts: Vec<StmtAST>,
 }
 
 /// code that has, returns or is a value
@@ -41,6 +43,7 @@ pub enum TypeAST {
     I32,
     Str,
     Char,
+    Void,
     Custom(String), //name
     Undefined,
 }
@@ -86,7 +89,7 @@ pub struct FunctionAST {
     pub name: String,
     pub args: Vec<DeclarationAST>,
     pub body: BodyAST,
-    pub rt_type: String,
+    pub rt_type: TypeAST,
 }
 
 //let (mut) var: Type;
@@ -102,6 +105,7 @@ pub struct DeclarationAST {
 pub struct CallAST {
     pub callee: String,
     pub args: Vec<ExprAST>,
+    pub rt_value_ignored: bool,
 }
 
 //a + b
@@ -109,6 +113,7 @@ pub struct CallAST {
 pub struct BinaryExpressionAST {
     pub rhs: ExprAST,
     pub lhs: ExprAST,
+    pub op: Token,
 }
 
 //return a

@@ -73,6 +73,7 @@ pub enum Token {
     I32,
     Str,
     Char,
+    Void,
     //Pointer,
 
     //End of File
@@ -86,6 +87,7 @@ pub struct Lexer {
     program: Vec<u8>,
     pos: usize,
     end: usize,
+    line: u32,
 }
 
 impl Lexer {
@@ -94,7 +96,12 @@ impl Lexer {
             end: program.len() - 1,
             program,
             pos: 0,
+            line: 1,
         }
+    }
+
+    pub fn current_line(&self) -> u32 {
+        self.line
     }
 
     pub fn get_next_token(&mut self) -> Token {
@@ -103,6 +110,9 @@ impl Lexer {
         }
 
         while self.program[self.pos].is_ascii_whitespace() {
+            if self.program[self.pos] == b'\n' {
+                self.line += 1;
+            }
             if self.pos == self.end {
                 return Token::EOF;
             }
@@ -304,6 +314,7 @@ impl Lexer {
                         "i16" => Token::I16,
                         "i32" => Token::I32,
                         "str" => Token::Str,
+                        "void" => Token::Void,
                         "let" => Token::Declaration,
                         "mut" => Token::Mut,
 

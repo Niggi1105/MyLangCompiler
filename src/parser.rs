@@ -1,7 +1,8 @@
 use crate::{
     ast::{
-        AssignStmtAST, CallExprAST, DeclAssignAST, DeclarationAST, ExprAST, NumberAST, StmtAST,
-        StringLiteralAST, TypeAST, VariableAST,
+        AssignStmtAST, BinaryExpressionAST, BodyAST, CallAST, DeclAssignAST, DeclarationAST,
+        ExprAST, FunctionAST, NumberAST, ReturnStmtAST, StmtAST, StringLiteralAST, TypeAST,
+        VariableAST,
     },
     lexer::{Lexer, Token},
 };
@@ -19,13 +20,16 @@ impl Parser {
         }
     }
 
+    ///advances the lexer to the next token, stores the new token in current token and returns a
+    ///clone of the new token
     pub fn get_next_token(&mut self) -> Token {
         self.cur_token = self.lexer.get_next_token();
         self.cur_token.clone()
     }
 
-    fn operator_precedence(&self) -> Option<i8> {
-        Some(match &self.cur_token {
+    ///returns the precedence for the current token, returns -1 if the token is not an operator,     
+    fn operator_precedence(&self) -> i8 {
+        match &self.cur_token {
             Token::PlusAssign => 0,
             Token::MinusAssign => 0,
             Token::MultAssign => 0,
@@ -51,19 +55,26 @@ impl Parser {
             //Token::Modulo => 19,
             Token::Not => 21,
             _other => -1,
-        })
+        }
     }
 
+    ///parses num and eats its token
     fn parse_number(&mut self, num: i32) -> NumberAST {
-        NumberAST { num }
+        let n = NumberAST { num };
+        self.get_next_token();
+        n
     }
 
+    ///parses string literal and eats its token
     fn parse_string_literal(&mut self, lit: String) -> StringLiteralAST {
-        StringLiteralAST { str: lit }
+        let l = StringLiteralAST { str: lit };
+        self.get_next_token();
+        l
     }
 
+    ///parses the Current token to a type and eats the current token
     fn parse_type(&mut self) -> TypeAST {
-        match self.cur_token {
+        let t = match &self.cur_token {
             Token::U8 => TypeAST::U8,
             Token::U16 => TypeAST::U16,
             Token::U32 => TypeAST::U32,
@@ -72,43 +83,81 @@ impl Parser {
             Token::I32 => TypeAST::I32,
             Token::Str => TypeAST::Str,
             Token::Char => TypeAST::Char,
-            Token::Identifier(name) => TypeAST::Custom(name),
-            other => panic!("unexpected token: {:?}, expected Type", other),
-        }
+            Token::Void => TypeAST::Void,
+            Token::Identifier(name) => TypeAST::Custom(name.to_string()),
+            other => panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected Type",
+                self.lexer.current_line(),
+                other
+            ),
+        };
+        self.get_next_token();
+        t
     }
 
-    fn parse_call_expr(&mut self, name: String) -> CallExprAST {
+    ///constructs a function call, where the return value is not ignored
+    fn parse_call_expr(&mut self, name: String) -> CallAST {
         let mut args = Vec::new();
         while self.cur_token != Token::RightParen {
+            //eat '(' or ','
             self.get_next_token();
-            println!("{:?}", self.cur_token);
             args.push(self.parse_expression());
-            //eat comma
-            match self.get_next_token() {
-                Token::Comma => {}
-                Token::RightParen => break,
-                other => panic!("unexpected token: {:?}, expected ',' or ')'", other),
-            }
         }
-        return CallExprAST { callee: name, args };
+        //eat ')'
+        self.get_next_token();
+        return CallAST {
+            callee: name,
+            args,
+            rt_value_ignored: false,
+        };
     }
 
+    ///parses the right side of an assignment
     fn parse_assign(&mut self, name: String) -> AssignStmtAST {
         //eat '='
         self.get_next_token();
+        let value = self.parse_expression();
+        if self.cur_token != Token::SemiColon {
+            panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected ';'",
+                self.lexer.current_line(),
+                self.cur_token
+            )
+        }
+        //eat the ';'
+        self.get_next_token();
         AssignStmtAST {
             var: VariableAST { name },
-            value: self.parse_expression(),
+            value,
         }
     }
 
     ///for call expressions and variables inside expressions
     fn parse_identifier(&mut self, ident: String) -> ExprAST {
+        //eats the identifier
         if self.get_next_token() != Token::LeftParen {
             //its a variable
             return ExprAST::Variable(VariableAST { name: ident });
         }
         ExprAST::Call(self.parse_call_expr(ident))
+    }
+
+    ///this is called when an identifier is found outside of expressions
+    ///it is either a call with ignored return value or an assignment
+    fn parse_ident_stmt(&mut self, ident: String) -> StmtAST {
+        //eats the identifier
+        match self.get_next_token() {
+            //...
+            //foo(2,6)
+            //...
+            Token::LeftParen => StmtAST::Call(self.parse_call_expr(ident)),
+            Token::Assign => StmtAST::Assign(Box::new(self.parse_assign(ident))),
+            other => panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected '(' or '='",
+                self.lexer.current_line(),
+                other
+            ),
+        }
     }
 
     ///returns the parsed expression from within the parens
@@ -126,17 +175,36 @@ impl Parser {
     fn parse_declaration(&mut self) -> StmtAST {
         //eat "let"
         self.get_next_token();
-        let is_mut = self.cur_token == Token::Mut;
+        let is_mut = if self.cur_token == Token::Mut {
+            //eat the 'mut' if it exists
+            self.get_next_token();
+            true
+        } else {
+            false
+        };
         let name = match &self.cur_token {
             Token::Identifier(ident) => ident.to_string(),
-            other => panic!("unexpected token: {:?}, expected identifier", other),
+            other => panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected identifier",
+                self.lexer.current_line(),
+                other
+            ),
         };
+        //eat identifier
         let var_type = if self.get_next_token() == Token::Colon {
-            self.parse_type()
+            //eat the ':'
+            self.get_next_token();
+            let t = self.parse_type();
+            //eat the type
+            self.get_next_token();
+            t
         } else {
             TypeAST::Undefined
         };
+        //eat the type
         if self.get_next_token() == Token::SemiColon {
+            //eat the ';'
+            self.get_next_token();
             StmtAST::Declaration(DeclarationAST {
                 name,
                 var_type,
@@ -145,19 +213,182 @@ impl Parser {
         } else if self.cur_token == Token::Assign {
             //eat the '='
             self.get_next_token();
+            let val = self.parse_expression();
+
+            if self.cur_token != Token::SemiColon {
+                panic!(
+                    "Error in line: {:?}, unexpected token: {:?}, expected ';'",
+                    self.lexer.current_line(),
+                    self.cur_token
+                );
+            }
+            //eat the ';'
+            self.get_next_token();
             //parse expr
             StmtAST::DeclAssign(DeclAssignAST {
                 name,
-                value: self.parse_expression(),
+                value: val,
                 is_mut,
                 var_type,
             })
         } else {
             panic!(
-                "unexpected token: {:?}, expected ';' or '='",
+                "Error in line: {:?}, unexpected token: {:?}, expected ';' or '='",
+                self.lexer.current_line(),
                 self.cur_token
             );
         }
+    }
+
+    fn parse_argument(&mut self) -> (DeclarationAST, bool) {
+        let is_mut = if self.cur_token == Token::Mut {
+            //eat 'mut' if exists
+            self.get_next_token();
+            true
+        } else {
+            false
+        };
+
+        if let Token::Identifier(arg_name) = self.cur_token.clone() {
+            //eat name
+            if self.get_next_token() != Token::Colon {
+                panic!(
+                    "Error in line: {:?}, unexpected token: {:?}, expected ':'",
+                    self.lexer.current_line(),
+                    self.cur_token
+                );
+            }
+            self.get_next_token();
+            let arg_tp = self.parse_type();
+            let is_last = if self.cur_token == Token::Comma {
+                self.get_next_token();
+                false
+            } else if self.cur_token == Token::RightParen {
+                true
+            } else {
+                panic!(
+                    "Error in line: {:?}, unexpected token: {:?}, expected ',' or ')'",
+                    self.lexer.current_line(),
+                    self.cur_token
+                )
+            };
+            (
+                DeclarationAST {
+                    name: arg_name,
+                    var_type: arg_tp,
+                    is_mut,
+                },
+                is_last,
+            )
+        } else {
+            panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected identifier",
+                self.lexer.current_line(),
+                self.cur_token
+            )
+        }
+    }
+
+    fn parse_function_def(&mut self) -> FunctionAST {
+        //eat 'fn'
+        if let Token::Identifier(name) = self.get_next_token() {
+            //eat function name
+            if let Token::LeftParen = self.get_next_token() {
+                //eat '('
+                let mut args = Vec::new();
+                //only look for arguments if there are any
+                if self.get_next_token() != Token::RightParen {
+                    let mut is_last = false;
+                    while !is_last {
+                        let (arg, last) = self.parse_argument();
+                        is_last = last;
+                        args.push(arg);
+                    }
+                }
+                //eat ')'
+                let rt_type = if self.get_next_token() == Token::Arrow {
+                    //eat '->'
+                    self.get_next_token();
+                    //parses and eats the type
+                    self.parse_type()
+                } else {
+                    TypeAST::Void
+                };
+
+                //check for '{'
+                if self.cur_token != Token::LeftBrace {
+                    panic!(
+                        "Error in line: {:?}, unexpected token: {:?}, expected '{{'",
+                        self.lexer.current_line(),
+                        self.cur_token
+                    )
+                }
+
+                //eat '{'
+                self.get_next_token();
+                let body = self.parse_body();
+                FunctionAST {
+                    name,
+                    args,
+                    body,
+                    rt_type,
+                }
+            } else {
+                panic!(
+                    "Error in line: {:?}, unexpected token: {:?}, expected '()'",
+                    self.lexer.current_line(),
+                    self.cur_token
+                );
+            }
+        } else {
+            panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected identifier",
+                self.lexer.current_line(),
+                self.cur_token
+            );
+        }
+    }
+
+    fn parse_return_stmt(&mut self) -> ReturnStmtAST {
+        //eat 'return'
+        self.get_next_token();
+        let rtstmt = ReturnStmtAST {
+            expr: self.parse_expression(),
+        };
+        if self.cur_token == Token::SemiColon {
+            //eat ';'
+            self.get_next_token();
+        } else {
+            panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected ';'",
+                self.lexer.current_line(),
+                self.cur_token
+            )
+        }
+        rtstmt
+    }
+
+    fn parse_body(&mut self) -> BodyAST {
+        let mut stmts = Vec::new();
+        loop {
+            match &self.cur_token {
+                Token::Declaration => stmts.push(self.parse_declaration()),
+                Token::Definition => stmts.push(StmtAST::Function(self.parse_function_def())),
+                Token::Return => stmts.push(StmtAST::Return(Box::new(self.parse_return_stmt()))),
+                Token::Identifier(ident) => stmts.push(self.parse_ident_stmt(ident.to_string())),
+                Token::RightBrace => {
+                    //eat '}'
+                    self.get_next_token();
+                    break;
+                }
+                other => panic!(
+                    "Error in line: {:?}, unexpected token: {:?}, expected statement",
+                    self.lexer.current_line(),
+                    other
+                ),
+            };
+        }
+        BodyAST { stmts }
     }
 
     fn parse_primary_expression(&mut self) -> ExprAST {
@@ -168,25 +399,48 @@ impl Parser {
             }
             Token::Number(num) => ExprAST::Number(self.parse_number(*num)),
             Token::LeftParen => self.parse_paren_expr(),
-            other => panic!("unexpected token: {:?}, expected Primary", other),
-        }
-    }
-
-    ///this is called when an identifier is found outside of expressions
-    ///it is either a call with ignored return value or an assignment
-    fn parse_ident_stmt(&mut self, ident: String) -> StmtAST {
-        match self.get_next_token() {
-            //...
-            //foo(2,6)
-            //...
-            Token::LeftParen => StmtAST::Call(self.parse_call_expr(ident)),
-            Token::Assign => StmtAST::Assign(Box::new(self.parse_assign(ident))),
-            other => panic!("unexpected token: {:?}, expected '(' or '='", other),
+            other => panic!(
+                "Error in line: {:?}, unexpected token: {:?}, expected Primary",
+                self.lexer.current_line(),
+                other
+            ),
         }
     }
 
     fn parse_expression(&mut self) -> ExprAST {
-        ExprAST::Number(NumberAST { num: 0 })
+        let lhs = self.parse_primary_expression();
+        self.parse_binary_op_rhs(0, lhs)
+    }
+
+    fn parse_binary_op_rhs(&mut self, expr_prec: i8, mut lhs: ExprAST) -> ExprAST {
+        loop {
+            let tok_prec = self.operator_precedence();
+
+            //the left side has higher precedence, resolve it first
+            if tok_prec < expr_prec {
+                return lhs;
+            }
+
+            let binop = self.cur_token.clone();
+            //eat the binop
+            self.get_next_token();
+
+            //parse binary expr after binary operator
+            let mut rhs = self.parse_primary_expression();
+
+            //if prec of operator after rhs is higher than prec of operator between lhs and rhs,
+            //give rhs as lhs to the pending op
+            let next_prec = self.operator_precedence();
+            if tok_prec < next_prec {
+                rhs = self.parse_binary_op_rhs(tok_prec + 1, rhs);
+            }
+
+            lhs = ExprAST::BinaryExpression(Box::new(BinaryExpressionAST {
+                rhs,
+                lhs,
+                op: binop,
+            }));
+        }
     }
 }
 
@@ -201,5 +455,19 @@ mod test {
         let mut parser = Parser::new(lexer);
         let parsed = parser.parse_primary_expression();
         panic!("{:?}", parsed)
+    }
+
+    #[test]
+    fn test_parse_program() {
+        let mprogram = "fn foo(a: u8, b: u8) -> u8 {
+                            return a + b;  
+                        }
+                        fn main() -> void {
+                            return foo(2,5);
+                        }}";
+        let lexer = Lexer::new(mprogram.into());
+        let mut parser = Parser::new(lexer);
+        let body = parser.parse_body();
+        panic!("{:?}", body)
     }
 }
