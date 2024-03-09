@@ -1,13 +1,10 @@
-mod ast;
-mod codegen;
-mod lexer;
+mod codegeneration;
+mod cpu_impl;
 mod parser;
-mod typechecks;
 
+use crate::parser::lexer::{self, Token};
 use std::env;
 use std::fs;
-
-use crate::lexer::Token;
 
 fn main() {
     let path = env::args().nth(1).expect("no path provided");

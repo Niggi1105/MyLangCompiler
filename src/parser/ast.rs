@@ -18,6 +18,7 @@ pub enum ExprAST {
     BinaryExpression(Box<BinaryExpressionAST>),
     Number(NumberAST),
     StringLiteral(StringLiteralAST),
+    BoolLiteral(BoolAST),
 }
 
 /// code that only moves a value
@@ -31,6 +32,7 @@ pub enum StmtAST {
     //function definition
     Function(FunctionAST),
     Return(Box<ReturnStmtAST>),
+    If(IfStmtAST),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -47,6 +49,17 @@ pub enum TypeAST {
     Bool,
     Custom(String), //name
     Undefined,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct BoolAST {
+    pub value: bool,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct IfStmtAST {
+    pub condition: ExprAST,
+    pub body: BodyAST,
 }
 
 /// a hardcoded integer value

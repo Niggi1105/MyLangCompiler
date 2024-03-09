@@ -1,8 +1,8 @@
 use crate::{
     ast::{
-        AssignStmtAST, BinaryExpressionAST, BodyAST, CallAST, DeclAssignAST, DeclarationAST,
-        ExprAST, FunctionAST, NumberAST, ReturnStmtAST, StmtAST, StringLiteralAST, TypeAST,
-        VariableAST,
+        AssignStmtAST, BinaryExpressionAST, BodyAST, BoolAST, CallAST, DeclAssignAST,
+        DeclarationAST, ExprAST, FunctionAST, IfStmtAST, NumberAST, ReturnStmtAST, StmtAST,
+        StringLiteralAST, TypeAST, VariableAST,
     },
     lexer::{Lexer, Token},
 };
@@ -107,11 +107,11 @@ impl Parser {
         }
         //eat ')'
         self.get_next_token();
-        return CallAST {
+        CallAST {
             callee: name,
             args,
             rt_value_ignored: false,
-        };
+        }
     }
 
     ///parses the right side of an assignment
@@ -373,6 +373,22 @@ impl Parser {
         rtstmt
     }
 
+    fn parse_if_stmnt(&mut self) -> IfStmtAST {
+        self.get_next_token();
+        let condition = self.parse_expression();
+        assert_eq!(self.get_next_token(), Token::LeftBrace);
+        let body = self.parse_body();
+        IfStmtAST { condition, body }
+    }
+
+    fn parse_bool_expr(&mut self) -> BoolAST {
+        let bl = BoolAST {
+            value: self.cur_token == Token::True,
+        };
+        self.get_next_token();
+        bl
+    }
+
     fn parse_body(&mut self) -> BodyAST {
         let mut stmts = Vec::new();
         loop {
@@ -389,6 +405,7 @@ impl Parser {
                     self.get_next_token();
                     break;
                 }
+                Token::If => stmts.push(StmtAST::If(self.parse_if_stmnt())),
                 other => panic!(
                     "Error in line: {:?}, unexpected token: {:?}, expected statement",
                     self.lexer.current_line(),
@@ -406,6 +423,8 @@ impl Parser {
                 ExprAST::StringLiteral(self.parse_string_literal(lit.to_string()))
             }
             Token::Number(num) => ExprAST::Number(self.parse_number(*num)),
+            Token::True => ExprAST::BoolLiteral(self.parse_bool_expr()),
+            Token::False => ExprAST::BoolLiteral(self.parse_bool_expr()),
             Token::LeftParen => self.parse_paren_expr(),
             other => panic!(
                 "Error in line: {:?}, unexpected token: {:?}, expected Primary",
