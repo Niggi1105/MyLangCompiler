@@ -6,23 +6,39 @@ pub struct Typechecker {
     var_resolver: VarResolver,
     funct_resolver: FunctionResolver,
     body: BodyAST,
+    expected_rt_tp: TypeAST,
 }
 
+//TODO: add type inference for declarations and declarations with assignments if type is undefined
 impl Typechecker {
     pub fn new(
         body: BodyAST,
         var_resolver: Option<VarResolver>,
         funct_resovler: Option<FunctionResolver>,
+        expected_rt_tp: TypeAST,
     ) -> Self {
         Self {
             var_resolver: var_resolver.unwrap_or(VarResolver::new()),
             funct_resolver: funct_resovler.unwrap_or(FunctionResolver::new()),
             body,
+            expected_rt_tp,
         }
     }
 
     fn check_and_resolve_call(&self, call: &CallAST) -> TypeAST {
-        unimplemented!()
+        let signt = self
+            .funct_resolver
+            .resolve_call(call.clone())
+            .expect("function not found in scope");
+        assert_eq!(signt.args.len(), call.args.len());
+        signt.args.iter().enumerate().map(|(i, decl)| {
+            assert_eq!(
+                decl.var_type,
+                self.check_and_resolve_expression(&call.args[i]),
+                "invalid type of variable in call"
+            );
+        });
+        signt.rt_type
     }
 
     fn check_expression(&self, exrp: &ExprAST) {
@@ -34,7 +50,10 @@ impl Typechecker {
     }
 
     fn check_return_stmt(&self, return_expr: &ExprAST) {
-        unimplemented!()
+        assert_eq!(
+            self.expected_rt_tp,
+            self.check_and_resolve_expression(return_expr)
+        );
     }
 
     pub fn check_types(&mut self) {
@@ -69,6 +88,7 @@ impl Typechecker {
                         self.body.clone(),
                         Some(self.var_resolver.new_scoped()),
                         Some(self.funct_resolver.new_scoped()),
+                        func.fn_signt.rt_type.clone(),
                     )
                     .check_types();
                 }
@@ -82,6 +102,7 @@ impl Typechecker {
                         self.body.clone(),
                         Some(self.var_resolver.new_scoped()),
                         Some(self.funct_resolver.new_scoped()),
+                        TypeAST::Void,
                     )
                     .check_types();
                 }

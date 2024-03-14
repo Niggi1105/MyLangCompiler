@@ -3,6 +3,8 @@ mod cpu_impl;
 mod parser;
 
 use crate::parser::lexer::Lexer;
+use codegeneration::typechecks;
+use codegeneration::typechecks::Typechecker;
 use parser::parser::Parser;
 
 use std::env;
@@ -19,5 +21,7 @@ fn main() {
     let mut pars = Parser::new(lexer);
     //run the parser
     let parsed = pars.parse();
+    println!("{:?}", parsed);
     //run typechecks
+    //typechecks::Typechecker::new(parsed, None, None).check_types();
 }
