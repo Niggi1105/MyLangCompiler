@@ -1,4 +1,4 @@
-use crate::lexer::Token;
+use crate::parser::lexer::Token;
 
 //{
 //  Body
@@ -47,7 +47,7 @@ pub enum TypeAST {
     Char,
     Void,
     Bool,
-    Custom(String), //name
+    //Custom(String), //custom types are not yet supported
     Undefined,
 }
 
@@ -83,10 +83,8 @@ pub struct AssignStmtAST {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DeclAssignAST {
-    pub name: String,
+    pub decl: DeclarationAST,
     pub value: ExprAST,
-    pub is_mut: bool,
-    pub var_type: TypeAST,
 }
 
 //"some string"
@@ -100,9 +98,14 @@ pub struct StringLiteralAST {
 //}
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FunctionAST {
+    pub fn_signt: FnSignatureAST,
+    pub body: BodyAST,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct FnSignatureAST {
     pub name: String,
     pub args: Vec<DeclarationAST>,
-    pub body: BodyAST,
     pub rt_type: TypeAST,
 }
 

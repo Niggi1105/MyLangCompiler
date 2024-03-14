@@ -2,19 +2,22 @@ mod codegeneration;
 mod cpu_impl;
 mod parser;
 
-use crate::parser::lexer::{self, Token};
+use crate::parser::lexer::Lexer;
+use parser::parser::Parser;
+
 use std::env;
 use std::fs;
 
 fn main() {
+    //get path from env
     let path = env::args().nth(1).expect("no path provided");
+    //read program file
     let program = fs::read(path).expect("can't read program");
-    let mut lexer = lexer::Lexer::new(program);
-    loop {
-        let tk = lexer.get_next_token();
-        println!("{:?}", tk);
-        if tk == Token::EOF {
-            break;
-        }
-    }
+    //build the lexer
+    let lexer = Lexer::new(program);
+    //build parser
+    let mut pars = Parser::new(lexer);
+    //run the parser
+    let parsed = pars.parse();
+    //run typechecks
 }

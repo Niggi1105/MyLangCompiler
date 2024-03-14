@@ -1,4 +1,4 @@
-use crate::{
+use crate::parser::{
     ast::{
         AssignStmtAST, BinaryExpressionAST, BodyAST, BoolAST, CallAST, DeclAssignAST,
         DeclarationAST, ExprAST, FunctionAST, IfStmtAST, NumberAST, ReturnStmtAST, StmtAST,
@@ -6,6 +6,8 @@ use crate::{
     },
     lexer::{Lexer, Token},
 };
+
+use super::ast::FnSignatureAST;
 
 pub struct Parser {
     lexer: Lexer,
@@ -229,12 +231,14 @@ impl Parser {
             }
             //eat the ';'
             self.get_next_token();
-            //parse expr
+            //return Declaration
             StmtAST::DeclAssign(DeclAssignAST {
-                name,
+                decl: DeclarationAST {
+                    name,
+                    var_type,
+                    is_mut,
+                },
                 value: val,
-                is_mut,
-                var_type,
             })
         } else {
             panic!(
@@ -333,10 +337,12 @@ impl Parser {
                 self.get_next_token();
                 let body = self.parse_body();
                 FunctionAST {
-                    name,
-                    args,
+                    fn_signt: FnSignatureAST {
+                        name,
+                        args,
+                        rt_type,
+                    },
                     body,
-                    rt_type,
                 }
             } else {
                 panic!(
@@ -397,7 +403,7 @@ impl Parser {
                 Token::Definition => stmts.push(StmtAST::Function(self.parse_function_def())),
                 Token::Return => stmts.push(StmtAST::Return(Box::new(self.parse_return_stmt()))),
                 Token::Identifier(ident) => stmts.push(self.parse_ident_stmt(ident.to_string())),
-                Token::Comment(com) => {
+                Token::Comment(_) => {
                     self.get_next_token();
                 }
                 Token::RightBrace => {
