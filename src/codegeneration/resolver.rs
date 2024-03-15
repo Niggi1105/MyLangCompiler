@@ -1,6 +1,6 @@
 use crate::parser::ast::{
-    CallAST, DeclAssignAST, DeclarationAST, ExprAST, FnSignatureAST, NumberAST, TypeAST,
-    VariableAST,
+    BodyAST, BoolAST, CallAST, DeclAssignAST, DeclarationAST, ExprAST, FnSignatureAST, NumberAST,
+    StmtAST, TypeAST, VariableAST,
 };
 
 pub struct VarResolver {
@@ -39,6 +39,26 @@ impl FunctionResolver {
     ///creates a fresh resolver with no variables stored
     pub fn new() -> Self {
         Self { signt: Vec::new() }
+    }
+
+    pub fn new_from_body(body: &BodyAST) -> Self {
+        let mut new = Self::new();
+        for stmt in &body.stmts {
+            match stmt {
+                StmtAST::Function(func) => new.add_signature(func.fn_signt.clone()),
+                _ => {}
+            }
+        }
+        new
+    }
+
+    pub fn add_from_body(&mut self, body: &BodyAST) {
+        for stmt in &body.stmts {
+            match stmt {
+                StmtAST::Function(func) => self.add_signature(func.fn_signt.clone()),
+                _ => {}
+            }
+        }
     }
 
     ///creates a new Resolver with access to all variables with lower scope

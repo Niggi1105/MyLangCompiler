@@ -2,8 +2,8 @@ mod codegeneration;
 mod cpu_impl;
 mod parser;
 
+use crate::parser::ast::TypeAST;
 use crate::parser::lexer::Lexer;
-use codegeneration::typechecks;
 use codegeneration::typechecks::Typechecker;
 use parser::parser::Parser;
 
@@ -23,5 +23,5 @@ fn main() {
     let parsed = pars.parse();
     println!("{:?}", parsed);
     //run typechecks
-    //typechecks::Typechecker::new(parsed, None, None).check_types();
+    Typechecker::new(parsed, None, None, TypeAST::Void).check_types();
 }

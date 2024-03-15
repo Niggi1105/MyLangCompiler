@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::parser::lexer::Token;
 
 //{
@@ -35,6 +37,12 @@ pub enum StmtAST {
     If(IfStmtAST),
 }
 
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TypeAST {
     U8,
@@ -49,6 +57,26 @@ pub enum TypeAST {
     Bool,
     //Custom(String), //custom types are not yet supported
     Undefined,
+}
+
+impl Display for TypeAST {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let tp = match self {
+            TypeAST::U8 => "u8",
+            TypeAST::U16 => "u16",
+            TypeAST::U32 => "u32",
+            TypeAST::I8 => "i8",
+            TypeAST::I16 => "i16",
+            TypeAST::I32 => "i32",
+            TypeAST::Str => "str",
+            TypeAST::Char => "char",
+            TypeAST::Void => "void",
+            TypeAST::Bool => "bool",
+            //Custom(String), //custom types are not yet supported
+            TypeAST::Undefined => "undefined",
+        };
+        write!(f, "{}", tp)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
