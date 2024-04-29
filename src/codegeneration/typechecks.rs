@@ -22,7 +22,7 @@ impl Typechecker {
     ) -> Self {
         Self {
             var_resolver: var_resolver.unwrap_or(VarResolver::new()),
-            funct_resolver: funct_resovler.unwrap_or(FunctionResolver::new_from_body(&body)),
+            funct_resolver: funct_resovler.unwrap_or(FunctionResolver::new()),
             body,
             expected_rt_tp,
         }
@@ -52,43 +52,61 @@ impl Typechecker {
         }
     }
 
-    fn check_iteger_bin_expr(&self, expr: &BinaryExpressionAST) {
+    fn check_iteger_bin_expr(&self, expr: &BinaryExpressionAST) -> TypeAST {
         match self.check_and_resolve_expression(&expr.lhs) {
-            TypeAST::I8 => assert_eq!(
-                self.check_and_resolve_expression(&expr.rhs),
-                TypeAST::I8,
-                "Incompatible Types, type should be i8"
-            ),
-            TypeAST::I16 => assert_eq!(
-                self.check_and_resolve_expression(&expr.rhs),
-                TypeAST::I16,
-                "Incompatible Types, type should be i16"
-            ),
-            TypeAST::I32 => assert_eq!(
-                self.check_and_resolve_expression(&expr.rhs),
-                TypeAST::I32,
-                "Incompatible Types, type should be i32"
-            ),
-            TypeAST::U8 => assert_eq!(
-                self.check_and_resolve_expression(&expr.rhs),
-                TypeAST::U8,
-                "Incompatible Types, type should be u8"
-            ),
-            TypeAST::U16 => assert_eq!(
-                self.check_and_resolve_expression(&expr.rhs),
-                TypeAST::U16,
-                "Incompatible Types, type should be u16"
-            ),
-            TypeAST::U32 => assert_eq!(
-                self.check_and_resolve_expression(&expr.rhs),
-                TypeAST::U32,
-                "Incompatible Types, type should be u32"
-            ),
+            TypeAST::I8 => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    TypeAST::I8,
+                    "Incompatible Types, type should be i8"
+                );
+                TypeAST::I8
+            }
+            TypeAST::I16 => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    TypeAST::I16,
+                    "Incompatible Types, type should be i16"
+                );
+                TypeAST::I16
+            }
+            TypeAST::I32 => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    TypeAST::I32,
+                    "Incompatible Types, type should be i16"
+                );
+                TypeAST::I32
+            }
+            TypeAST::U8 => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    TypeAST::U8,
+                    "Incompatible Types, type should be u8"
+                );
+                TypeAST::U8
+            }
+            TypeAST::U16 => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    TypeAST::U16,
+                    "Incompatible Types, type should be u16"
+                );
+                TypeAST::U16
+            }
+            TypeAST::U32 => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    TypeAST::U32,
+                    "Incompatible Types, type should be u32"
+                );
+                TypeAST::U32
+            }
             other => panic!(
                 "binary opperator XORINT is not supported for type: {}",
                 other
             ),
-        };
+        }
     }
 
     fn check_and_resolve_binary_expression(&self, expr: &BinaryExpressionAST) -> TypeAST {
@@ -115,13 +133,25 @@ impl Typechecker {
                     TypeAST::Bool,
                     "bool operators can only be applied to booleans"
                 );
+                TypeAST::Bool
             }
             Token::Plus => {
-                todo!("add implementation for strings and integers")
+                if self.check_and_resolve_expression(&expr.rhs) == TypeAST::Str {
+                    TypeAST::Str
+                } else {
+                    self.check_iteger_bin_expr(expr)
+                }
             }
-            other => panic!("not a vaild opperator: {}", other),
+            Token::Equal => {
+                assert_eq!(
+                    self.check_and_resolve_expression(&expr.rhs),
+                    self.check_and_resolve_expression(&expr.lhs),
+                    "both sides of binary expression have to be of the same type"
+                );
+                TypeAST::Bool
+            }
+            other => panic!("unexpected operator: {}", other),
         }
-        TypeAST::Undefined
     }
 
     fn check_and_resolve_expression(&self, expr: &ExprAST) -> TypeAST {
@@ -188,7 +218,7 @@ impl Typechecker {
                 StmtAST::Function(func) => {
                     self.funct_resolver.add_signature(func.fn_signt.clone());
                     Self::new(
-                        self.body.clone(),
+                        func.body.clone(),
                         Some(self.var_resolver.new_scoped()),
                         Some(self.funct_resolver.new_scoped()),
                         func.fn_signt.rt_type.clone(),

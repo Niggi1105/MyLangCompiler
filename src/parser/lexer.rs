@@ -348,7 +348,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod test {
-    use crate::lexer::Token;
+    use crate::parser::lexer::Token;
 
     use super::Lexer;
 

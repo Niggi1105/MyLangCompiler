@@ -1,5 +1,4 @@
 mod codegeneration;
-mod cpu_impl;
 mod parser;
 
 use crate::parser::ast::TypeAST;
@@ -24,4 +23,25 @@ fn main() {
     println!("{:?}", parsed);
     //run typechecks
     Typechecker::new(parsed, None, None, TypeAST::Void).check_types();
+}
+
+#[cfg(test)]
+mod test{
+    use super::*;
+    #[test]
+    fn test_type_checks(){
+        
+        let path = "./MyLangData/test_lexer.myla";
+        //read program file
+        let program = fs::read(path).expect("can't read program");
+        //build the lexer
+        let lexer = Lexer::new(program);
+        //build parser
+        let mut pars = Parser::new(lexer);
+        //run the parser
+        let parsed = pars.parse();
+        println!("{:?}", parsed);
+        //run typechecks
+        Typechecker::new(parsed, None, None, TypeAST::Void).check_types();
+    }
 }
