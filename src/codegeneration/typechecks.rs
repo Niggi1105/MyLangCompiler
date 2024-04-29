@@ -170,10 +170,7 @@ impl Typechecker {
                     .expect("call of undefined function")
                     .rt_type
             }
-            ExprAST::Number(_num) => {
-                //only lower 8 bits are used
-                TypeAST::I32
-            }
+            ExprAST::Number(_num) => TypeAST::I32,
             ExprAST::BoolLiteral(_) => TypeAST::Bool,
             ExprAST::StringLiteral(_) => TypeAST::Str,
             ExprAST::BinaryExpression(bin_expr) => {
@@ -185,21 +182,27 @@ impl Typechecker {
     fn check_return_stmt(&self, return_expr: &ExprAST) {
         assert_eq!(
             self.expected_rt_tp,
-            self.check_and_resolve_expression(return_expr)
+            self.check_and_resolve_expression(return_expr),
+            "invalid return type"
         );
     }
 
     pub fn check_types(&mut self) {
-        for stmt in &self.body.stmts {
+        for stmt in self.body.stmts.to_vec() {
             match stmt {
                 StmtAST::Declaration(decl) => self.var_resolver.add_decl(decl.clone()),
-                StmtAST::DeclAssign(declassg) => {
+                StmtAST::DeclAssign(mut declassg) => {
+                    if declassg.decl.var_type == TypeAST::Undefined {
+                        declassg.decl.var_type = self.check_and_resolve_expression(&declassg.value);
+                    } else {
+                        assert_eq!(
+                            declassg.decl.var_type,
+                            self.check_and_resolve_expression(&declassg.value),
+                            "invalid type"
+                        );
+                    }
+
                     self.var_resolver.add_decl(declassg.decl.clone());
-                    assert_eq!(
-                        declassg.decl.var_type,
-                        self.check_and_resolve_expression(&declassg.value),
-                        "invalid type"
-                    );
                 }
                 StmtAST::Assign(ass) => {
                     assert_eq!(
