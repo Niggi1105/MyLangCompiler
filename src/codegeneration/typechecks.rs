@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::parser::{
     ast::{BinaryExpressionAST, BodyAST, CallAST, DeclarationAST, ExprAST, StmtAST, TypeAST},
     lexer::Token,
@@ -170,7 +172,9 @@ impl Typechecker {
                     .expect("call of undefined function")
                     .rt_type
             }
-            ExprAST::Number(_num) => TypeAST::I32,
+            ExprAST::Number(num_ast) => {
+                todo!("make integer Immediates have dynamic types")
+            }
             ExprAST::BoolLiteral(_) => TypeAST::Bool,
             ExprAST::StringLiteral(_) => TypeAST::Str,
             ExprAST::BinaryExpression(bin_expr) => {

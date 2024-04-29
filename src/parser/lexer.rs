@@ -57,7 +57,7 @@ pub enum Token {
     LeftBrace,
     LeftBracket,
     LeftParen,
-    Number(i32),
+    Number(i64),
     StringLiteral(String),
     SemiColon,
     RightBrace,
@@ -335,7 +335,7 @@ impl Lexer {
                             break;
                         }
                     }
-                    Token::Number(num_string.parse::<i32>().expect("invalid number"))
+                    Token::Number(num_string.parse::<i64>().expect("invalid number"))
                 } else {
                     Token::Unknown
                 }

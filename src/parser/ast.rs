@@ -57,6 +57,8 @@ pub enum TypeAST {
     Bool,
     //Custom(String), //custom types are not yet supported
     Undefined,
+    //for compilation only, allows for varying interger sizes depending on expected type
+    IntImm(i64),
 }
 
 impl Display for TypeAST {
@@ -74,6 +76,7 @@ impl Display for TypeAST {
             TypeAST::Bool => "bool",
             //Custom(String), //custom types are not yet supported
             TypeAST::Undefined => "undefined",
+            TypeAST::IntImm(_) => "IntImm",
         };
         write!(f, "{}", tp)
     }
@@ -93,7 +96,7 @@ pub struct IfStmtAST {
 /// a hardcoded integer value
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NumberAST {
-    pub num: i32,
+    pub num: i64,
 }
 
 /// used in expressions, will be resolved by code gen

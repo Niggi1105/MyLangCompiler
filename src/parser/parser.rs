@@ -61,7 +61,7 @@ impl Parser {
     }
 
     ///parses num and eats its token
-    fn parse_number(&mut self, num: i32) -> NumberAST {
+    fn parse_number(&mut self, num: i64) -> NumberAST {
         let n = NumberAST { num };
         self.get_next_token();
         n
