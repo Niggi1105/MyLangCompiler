@@ -1,7 +1,7 @@
-use core::panic;
-
 use crate::parser::{
-    ast::{BinaryExpressionAST, BodyAST, CallAST, DeclarationAST, ExprAST, StmtAST, TypeAST},
+    ast::{
+        BinaryExpressionAST, BodyAST, CallAST, DeclarationAST, ExprAST, NumberAST, StmtAST, TypeAST,
+    },
     lexer::Token,
 };
 
@@ -44,7 +44,8 @@ impl Typechecker {
             .for_each(|(signt_arg, call_arg)| {
                 assert_eq!(
                     signt_arg.var_type,
-                    self.check_and_resolve_expression(call_arg)
+                    self.check_and_resolve_expression(call_arg),
+                    "type of argument does not match type of expression"
                 )
             });
         if call.rt_value_ignored {
@@ -76,7 +77,7 @@ impl Typechecker {
                 assert_eq!(
                     self.check_and_resolve_expression(&expr.rhs),
                     TypeAST::I32,
-                    "Incompatible Types, type should be i16"
+                    "Incompatible Types, type should be i32"
                 );
                 TypeAST::I32
             }
@@ -173,7 +174,11 @@ impl Typechecker {
                     .rt_type
             }
             ExprAST::Number(num_ast) => {
-                todo!("make integer Immediates have dynamic types")
+                if -128 < num_ast.num && num_ast.num < 128 {
+                    TypeAST::I8
+                } else {
+                    panic!("Immediate exceeds bounds of i8")
+                }
             }
             ExprAST::BoolLiteral(_) => TypeAST::Bool,
             ExprAST::StringLiteral(_) => TypeAST::Str,
@@ -194,6 +199,14 @@ impl Typechecker {
     pub fn check_types(&mut self) {
         for stmt in self.body.stmts.to_vec() {
             match stmt {
+                StmtAST::Function(func) => {
+                    self.funct_resolver.add_signature(func.fn_signt.clone());
+                }
+                _ => {}
+            }
+        }
+        for stmt in self.body.stmts.to_vec() {
+            match stmt {
                 StmtAST::Declaration(decl) => self.var_resolver.add_decl(decl.clone()),
                 StmtAST::DeclAssign(mut declassg) => {
                     if declassg.decl.var_type == TypeAST::Undefined {
@@ -202,7 +215,7 @@ impl Typechecker {
                         assert_eq!(
                             declassg.decl.var_type,
                             self.check_and_resolve_expression(&declassg.value),
-                            "invalid type"
+                            "invalid type in declare assignment"
                         );
                     }
 
@@ -219,11 +232,10 @@ impl Typechecker {
                 }
 
                 StmtAST::Call(cll) => {
-                    assert_eq!(self.check_and_resolve_call(&cll), TypeAST::Void);
+                    self.check_and_resolve_call(&cll);
                 }
 
                 StmtAST::Function(func) => {
-                    self.funct_resolver.add_signature(func.fn_signt.clone());
                     Self::new(
                         func.body.clone(),
                         Some(self.var_resolver.new_scoped()),

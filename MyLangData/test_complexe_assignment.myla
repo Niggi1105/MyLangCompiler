@@ -1,10 +1,10 @@
-fn main() -> i32 {
-    let a: u8 = 32;
-    let b: u8 = 42;
-    let c: u8 = add(a, b);
+fn main() -> i8 {
+    let a: i8 = 32;
+    let b: i8 = 42;
+    let c: i8 = add(a, b);
     return 0;
 }
 
-fn add(a: u8, b: u8) -> u8 {
+fn add(a: u8, b: u8) -> i8 {
     return a + b;
 }

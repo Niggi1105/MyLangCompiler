@@ -59,4 +59,3 @@ mod test {
         Typechecker::new(parsed, None, None, TypeAST::Void).check_types();
     }
 }
-

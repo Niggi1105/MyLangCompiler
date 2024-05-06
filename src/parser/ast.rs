@@ -58,7 +58,6 @@ pub enum TypeAST {
     //Custom(String), //custom types are not yet supported
     Undefined,
     //for compilation only, allows for varying interger sizes depending on expected type
-    IntImm(i64),
 }
 
 impl Display for TypeAST {
@@ -76,7 +75,6 @@ impl Display for TypeAST {
             TypeAST::Bool => "bool",
             //Custom(String), //custom types are not yet supported
             TypeAST::Undefined => "undefined",
-            TypeAST::IntImm(_) => "IntImm",
         };
         write!(f, "{}", tp)
     }
